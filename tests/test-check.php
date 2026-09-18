@@ -89,10 +89,15 @@ check('the temp directory is not',  !in_array("$BUILD/.sassy-tmp", $orphans, tru
 check('nor a dotfile',              !in_array("$BUILD/.hidden.css", $orphans, true));
 check('nor anything claimed',       !in_array("$BUILD/a.css", $orphans, true));
 
-// Nothing here hooks the editor, which is what a plugin skipping the CLI looks like from Sassy.
-$quiet  = Style_Stack::discover(['editor']);
-$notice = array_values(array_filter($quiet->audit(), function ($d) { return $d->severity === 'notice' && str_contains($d->message, "Context 'editor' registered no styles"); }));
-check('a quiet context is noted beside the orphans', $quiet->quiet_contexts() === ['editor'] && count($notice) === 1, var_export($quiet->quiet_contexts(), true));
+// The shape of a site whose plugin skips the CLI: other plugins register admin styles, so the
+// context is not quiet, but the handle that built admin.css is registered nowhere here. The
+// cache record it left from its web compiles says who built the file.
+set_transient('sassy-filemtimes-ghost', ["$BUILD/abandoned.css" => 1, '__compile_time__' => 1700000000, 'deps' => [], 'dirs' => []]);
+set_transient('sassy-handles', array_merge(get_transient('sassy-handles') ?: [], ['ghost']));
+$about = array_values(array_filter($stack->audit(), function ($d) use ($BUILD) { return in_array($d->file, ["$BUILD/abandoned.css", "$BUILD/abandoned.css.map"], true); }));
+check('an output a recorded handle built is a notice naming it', count($about) === 2 && $about[0]->severity === 'notice' && str_contains($about[0]->message, 'Built by `ghost`, last compiled 2023-11-14'), var_export(array_map(function ($d) { return [$d->severity, $d->message]; }, $about), true));
+check('its map too, and neither is an orphan',                  $about[1]->severity === 'notice' && !array_filter($about, function ($d) { return str_contains($d->message, 'Orphaned'); }));
+delete_transient('sassy-filemtimes-ghost');
 
 $audit   = $stack->audit();
 $flagged = array_values(array_filter($audit, function ($d) { return str_contains($d->message, 'Orphaned'); }));

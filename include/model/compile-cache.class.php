@@ -245,6 +245,23 @@ class Compile_Cache {
 
     }
 
+    /**
+     * The handle whose last recorded compile wrote $path, with when, or null. Walks the index
+     * rather than the options table, so it answers under an external object cache too.
+     *
+     * @return ?array{handle: string, time: ?int}
+     */
+    public static function builder_of ($path) {
+
+        foreach (get_transient(static::HANDLES_KEY) ?: [] as $handle) {
+            $recorded = get_transient(static::GRAPH_KEY . $handle);
+            if (is_array($recorded) && isset($recorded[$path])) return ['handle' => $handle, 'time' => $recorded['__compile_time__'] ?? null];
+        }
+
+        return null;
+
+    }
+
     protected static function index ($handle) {
 
         $handles = get_transient(static::HANDLES_KEY) ?: [];
