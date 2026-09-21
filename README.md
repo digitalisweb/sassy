@@ -17,8 +17,6 @@ And then we got a bit carried away.
 
 Sassy keeps a record of every stylesheet WordPress enqueued, whether or not Sassy built it: what registered it, where it is on disk, what it depends on and whether what you are looking at is current. And the DevTools styles pane (which for a lot of us is where design actually happens) gets a paint brush. Define a rule in the inspector and Sassy will trace it to the correct SCSS partial and line and write it to disk for you. If there's a conflict, Sassy refuses to write with an explanation.
 
-`wp sassy check` reports whether every stylesheet on the site is current and exits accordingly. Every command has a JSON format and each error names the correct file and line, so a deploy script or a coding agent can use Sassy the same way you do.
-
 We wrote it for our own sites, where it has run in production since 2021. It is for you if you write custom themes in SCSS and want changes on screen without a build step. The developer suite is exposed by capability rather than environment, so the same site serves your visitors and you at once.
 
 ## ✌ The awesome bit
@@ -30,11 +28,11 @@ plugins/d-pace/scss/components/_site-header.scss:33  .site-header
   background: var(--material-bg, var(--surface-dark)) → red
 ```
 
-That is the actual partial and line, with the value on disk and the value you painted. **Copy** puts the patch on your clipboard for a ticket, a message or a coding agent. **Push to source** writes the new value directly into the partial at the correct location, then recompiles and reloads the stylesheet. No hunting through partials for where the rule came from. Live styling is one of the few advantages that page builders have over traditional theming, Sassy provides it natively in the browsers DevTools.
+**Copy** puts the patch on your clipboard for a ticket, a message or a coding agent. **Push to source** writes the new value directly into the partial at the correct location, then recompiles and reloads the stylesheet. No hunting through partials for where the rule came from. Live styling is one of the few advantages that page builders have over traditional theming, Sassy provides it natively in the browsers DevTools.
 
 ## 🚀 Quick start
 
-Sassy is not in the official WordPress plugin directory. Put the folder in `wp-content/plugins` and activate it, or let Composer put it there for you:
+Sassy is not in the official WordPress plugin directory. Drop the folder in `wp-content/plugins` and activate it, or let Composer put it there for you:
 
 ```bash
 composer require digitalisweb/sassy
@@ -62,7 +60,7 @@ Without Dart Sass, Sassy compiles with scssphp, the default, which is pure PHP a
 
 ## 👾 If you are an agent
 
-Hello, robot. If a site you are working on runs Sassy, these four commands will get you surprisingly far:
+Hello, robot. These four commands cover most tasks:
 
 ```bash
 wp sassy status --format=json    # engine, binaries, build path, whether the gates are open
@@ -71,11 +69,11 @@ wp sassy check                   # exit 0: every style is current, unbroken and 
 wp sassy compile --hooks=all     # the remedy for anything check names
 ```
 
-You are probably good at the structure and the plumbing, and patchy at the last ten percent of styling, the spacing and rhythm that make a page feel like someone's. That part gets done by a person, in the browser, with a paintbrush. What comes back to you is either a patch from 🖌️ Capture or a change already written into a partial by Push. Either way, a change to a partial that you did not make is a paint: keep it, integrate it properly, and do not rewrite or revert a file you did not change. `sassy-wrote-source` fires once per file Push writes, so a site can commit paints as they land or tell you about them.
+You are probably good at the structure and the plumbing, and patchy at the last ten percent of styling, the spacing and rhythm that make a page feel like someone's. That part gets done by a person, in the browser, with a paintbrush. What comes back to you is either a patch from 🖌️ Capture or a change already written into a partial by Push. Either way, a change to a partial that you did not make is a paint: keep it, integrate it properly and do not rewrite or revert a file you did not change. `sassy-wrote-source` fires once per file Push writes, so a site can commit paints as they land or tell you about them.
 
 A few promises:
 
-- diagnostics point at a `file:line:column` that exists on disk, and a path you cannot open is a bug
+- diagnostics point at a `file:line:column`
 - `check` does not compile anything; when it fails, `compile` is the fix
 - a failed compile is never recorded as current, so a broken handle shows as stale rather than disappearing
 - `wp sassy deps --file=_mixins.scss` tells you which handles you are about to upset
@@ -97,7 +95,7 @@ Between compiles the check is one `stat` per dependency, under a millisecond on 
 
 Compiled CSS and source maps land in `wp-content/scss/`, or `wp-content/scss/{blog_id}/` on multisite. The [hooks](#hooks) move it.
 
-The URL Sassy hands WordPress ends in `h=` and the first twelve of the build's md5, so every build is a new address. `ver` only moves when you bump it, and a CDN with a long `max-age` will otherwise serve last month's sheet under this month's URL. The source map records the same hash and is linked at an address that moves with the build too, so neither DevTools nor Capture can pair a new sheet with a map the browser kept from an old one. Capture checks the pair and refuses to align a sheet against a map from another build, or one that does not say which build it is.
+The URL Sassy hands WordPress ends in `h=` and the first twelve of the build's md5, so every build is a new address. `ver` only moves when you bump it. The source map records the same hash and is linked at an address that moves with the build too, so neither DevTools nor Capture can pair a new sheet with a map the browser kept from an old one. Capture checks the pair and refuses to align a sheet against a map from another build, or one that does not say which build it is.
 
 Where the web server owns that directory, compiling from your own account fails and `wp sassy status` says `build path writable NO`. Group permissions do not hold, since php-fpm's umask makes each new sheet 644 and Sassy rewrites in place. A default ACL does:
 
