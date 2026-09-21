@@ -332,7 +332,7 @@
             if (typeof href !== 'string' || !href) return null;
 
             for (const link of document.querySelectorAll('link[rel="stylesheet"]')) {
-                if (link.href.includes(href)) return link;
+                if (this.sameFile(link.href, href)) return link;
             }
 
             return null;
@@ -360,6 +360,22 @@
             }
 
             return this.sheets;
+
+        },
+
+        /**
+         * Whether two URLs name the same file. The query says which build (h), which site version
+         * (ver) and which cache-buster, never which sheet: the endpoint answers with the new
+         * build's URL and the page links the old one exactly when there is something to swap.
+         */
+        sameFile (a, b) {
+
+            const base = (typeof location !== 'undefined' && location.href) || 'http://sassy.invalid/';
+
+            try {
+                const x = new URL(a, base), y = new URL(b, base);
+                return x.host === y.host && x.pathname === y.pathname;
+            } catch (e) { return false; }
 
         },
 
@@ -1286,7 +1302,7 @@
                         continue;
                     }
 
-                    if (link.href.includes(href)) {
+                    if (this.sameFile(link.href, href)) {
 
                         const newHref = new URL(link.href);
                         if (meta && meta.hash) { newHref.searchParams.set('h', meta.hash); newHref.searchParams.delete('sassy'); }

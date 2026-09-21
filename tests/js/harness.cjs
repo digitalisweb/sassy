@@ -288,26 +288,33 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
     ok('Dismiss hides it and empties it',   !panel.classList.contains('show') && panel.querySelectorAll('.sassy-error').length === 0);
 
 
-    const sheet = { href: 'http://test.local/wp-content/scss/frontend.css' };
+    // As the page links it and as the endpoint answers since the URL carries the build: the two
+    // differ in h exactly when there is something to swap, so they are matched by file, not by URL.
+    const sheet = { href: 'http://test.local/wp-content/scss/frontend.css?ver=1&h=aaa' };
     document.querySelectorAll = sel => (String(sel).includes('stylesheet') ? [sheet] : []);
 
     let hash = 'aaa';
-    const answer = () => ({ success: true, data: { 'd-pace-frontend': { href: 'http://test.local/wp-content/scss/frontend.css', warnings: [], meta: { hash } } } });
+    const answer = () => ({ success: true, data: { 'd-pace-frontend': { href: 'http://test.local/wp-content/scss/frontend.css?ver=1&h=' + hash, warnings: [], meta: { hash } } } });
     global.fetch = url => { fetched.push(url); return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(answer()) }); };
 
     const reloadsBefore = dispatched.filter(t => t === 'sassy:reload').length;
 
     await global.window.sassy.poll();
-    ok('the first poll only records the hash', !sheet.href.includes('h='));
+    ok('the first poll only records the hash', sheet.href.endsWith('h=aaa'));
     ok('and does not force',                   !String(fetched[fetched.length - 1]).includes('force=1'));
 
     await global.window.sassy.poll();
-    ok('an unchanged hash reloads nothing',    !sheet.href.includes('h='));
+    ok('an unchanged hash reloads nothing',    sheet.href.endsWith('h=aaa'));
 
     hash = 'bbb';
     await global.window.sassy.poll();
-    ok('a changed hash reloads that sheet',    sheet.href.includes('h=bbb') && !sheet.href.includes('sassy='));
+    ok('a changed hash reloads that sheet',    sheet.href === 'http://test.local/wp-content/scss/frontend.css?ver=1&h=bbb');
     ok('and announces the reload',             dispatched.filter(t => t === 'sassy:reload').length === reloadsBefore + 1);
+
+    hash = 'ccc';
+    global.window.sassy.compile();
+    await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
+    ok('Live Compile swaps a link whose build is older than the answer', sheet.href === 'http://test.local/wp-content/scss/frontend.css?ver=1&h=ccc');
 
     global.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ success: false, data: {} }) });
     await global.window.sassy.poll();
