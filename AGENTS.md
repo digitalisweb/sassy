@@ -8,13 +8,13 @@
 > the present, this file wins — so **each phase updates this file as part of landing**, or the
 > sentence you are reading becomes a trap.
 >
-> **Phases 1 to 8 have landed, and all of it is 3.0.0, released 2026-09-16** as tag `v3.0.0` on `main`. The minors 3.1 to 3.7 they carried as they landed were collapsed into the one number on 2026-09-14, nothing having been released between. Phase 9 is still as the plan describes it. 3.0.1 followed the same day, a metadata release: the repository moved to `github.com/digitalisweb/sassy` and the Composer package is `digitalisweb/sassy`, so Packagist has a tag whose name matches. Work continues on `main` in this directory, which **never changes branch** (plan §8); a release is a `vX.Y.Z` tag on `main` whose number matches the header. `v1` is the 1.x maintenance line and the only other branch.
+> **Phases 1 to 8 have landed, and all of it is 3.0.0, released 2026-09-16** as tag `v3.0.0` on `main`. The minors 3.1 to 3.7 they carried as they landed were collapsed into the one number on 2026-09-14, nothing having been released between. Phase 9 is still as the plan describes it. 3.0.1 followed the same day, a metadata release: the repository moved to `github.com/digitalisweb/sassy` and the Composer package is `digitalisweb/sassy`, so Packagist has a tag whose name matches. **3.1.0 (2026-09-21)** is the first release shaped by a second site: digitalis.ca ran each commit and an agent there handed back what broke. It carries a URL per build with a map that names its build, the paintbrush's block deletion and one-line blocks, the selector-key and stat-cache fixes, `sassy-wrote-source`, `SASSY_WRITE_SOURCE`, the builder notice in `check`, and the key caps in the bar. Work continues on `main` in this directory, which **never changes branch** (plan §8); a release is a `vX.Y.Z` tag on `main` whose number matches the header. `v1` is the 1.x maintenance line and the only other branch.
 >
 > **Starting fresh?** Plan §8 opens with what to read and the four commands to run before touching anything. Run them: this file has been wrong about the present three times, and each time the code was right.
 
 ## Overview
 
-**Sassy** is a WordPress plugin (v3.0.2, by Digitalis Web Corp) that compiles SCSS files on-demand. The core premise: enqueue `.scss` files exactly as you would `.css` files via `wp_enqueue_style`, and Sassy intercepts the URL, compiles the SCSS to CSS, writes the result to disk, and returns the compiled CSS URL to WordPress instead.
+**Sassy** is a WordPress plugin (v3.1.0, by Digitalis Web Corp) that compiles SCSS files on-demand. The core premise: enqueue `.scss` files exactly as you would `.css` files via `wp_enqueue_style`, and Sassy intercepts the URL, compiles the SCSS to CSS, writes the result to disk, and returns the compiled CSS URL to WordPress instead.
 
 ```php
 wp_enqueue_style('my-theme', get_template_directory_uri() . '/style.scss');
@@ -593,7 +593,7 @@ Per-compile filters receive `($value, $src, $handle, $asset)`, except `sassy-com
 
 | Constant | Set in | Value |
 |---|---|---|
-| `SASSY_VERSION` | `sassy.php` | `'3.0.2'` — kept identical to the plugin header |
+| `SASSY_VERSION` | `sassy.php` | `'3.1.0'` — kept identical to the plugin header |
 | `SASSY_PATH` | `sassy.php` | Absolute path to plugin directory (trailing slash) |
 | `SASSY_URI` | `sassy.php` | URL to plugin directory (trailing slash) |
 | `SASSY_ROOT_FILE` | `sassy.php` | `__FILE__` of sassy.php |
