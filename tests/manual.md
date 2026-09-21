@@ -131,6 +131,7 @@ Tier 2 of the paintbrush. This writes to files in d-pace, whose tree carries wor
 | Revert the pushed line in d-pace and compile | `wp sassy check` exits zero |
 | Delete a rule in the styles pane, Capture, Push | The rule is listed at its file and line with `(rule removed)` and what it had; Push deletes the block from the partial when its opener is exactly that selector, else refuses with the reason and leaves it for Copy |
 | Add a rule with **+**, Push, then on a site with `sassy-check-dependencies` off | The sheet still recompiles and reloads, and the new rule then has a location |
+| Delete a declaration and Push, then re-add the same declaration and Push | The rule stays editable in the styles pane after the second swap. The third build is byte for byte the first, and without a unique swap URL Chrome binds it to the text it edited and makes the rule read-only |
 | A page whose scripts set many inline styles, Capture | Past three, the `element.style` entries fold under a count; Copy still includes them |
 
 ## Auto-reload

@@ -311,10 +311,7 @@
                         const link = this.sheetFor(entry.href);
                         if (!link) continue;
 
-                        const next = new URL(link.href);
-                        next.searchParams.set('h', hash);
-                        next.searchParams.delete('sassy');
-                        link.href = next.toString();
+                        link.href = this.swapUrl(link.href, hash);
                         swapped = true;
 
                     }
@@ -360,6 +357,28 @@
             }
 
             return this.sheets;
+
+        },
+
+        /**
+         * The address a client-side swap loads. h names the build, as the server writes it; with no
+         * hash known, h would lie, so it goes and the clock busts the cache instead. r is this
+         * page's swap count, because the server's URL is keyed by content and identical source is
+         * an identical URL: delete, Push, re-add, Push returns to the first build's address, and
+         * Chrome's inspector, which keeps its edited text per URL for the page's life, then drops
+         * every source range in the sheet and its rules go read-only. Visitors never see r.
+         */
+        swapUrl (href, hash) {
+
+            const next = new URL(href, (typeof location !== 'undefined' && location.href) || 'http://sassy.invalid/');
+
+            if (hash) { next.searchParams.set('h', hash); next.searchParams.delete('sassy'); }
+            else      { next.searchParams.delete('h'); next.searchParams.set('sassy', Date.now().toString()); }
+
+            this.swaps = (this.swaps || 0) + 1;
+            next.searchParams.set('r', String(this.swaps));
+
+            return next.toString();
 
         },
 
@@ -1083,10 +1102,7 @@
                 try { href = new URL(link.href, location.href); } catch (e) { return; }
                 if (href.origin !== location.origin) return;
 
-                // No hash known here, so h would lie about the build: drop it and bust by time.
-                href.searchParams.delete('h');
-                href.searchParams.set('sassy', Date.now().toString());
-                link.href = href.toString();
+                link.href = this.swapUrl(href.toString(), null);
 
             });
 
@@ -1321,10 +1337,7 @@
 
                     if (this.sameFile(link.href, href)) {
 
-                        const newHref = new URL(link.href);
-                        if (meta && meta.hash) { newHref.searchParams.set('h', meta.hash); newHref.searchParams.delete('sassy'); }
-                        else { newHref.searchParams.delete('h'); newHref.searchParams.set('sassy', Date.now().toString()); }
-                        link.href = newHref.toString();
+                        link.href = this.swapUrl(link.href, meta && meta.hash);
 
                         if (meta && this.logging('meta')) console.info(`Sassy compile info for ${property}:`, meta);
 

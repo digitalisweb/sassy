@@ -308,13 +308,23 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
     hash = 'bbb';
     await global.window.sassy.poll();
-    ok('a changed hash reloads that sheet',    sheet.href === 'http://test.local/wp-content/scss/frontend.css?ver=1&h=bbb');
+    ok('a changed hash reloads that sheet',    /frontend\.css\?ver=1&h=bbb&r=\d+$/.test(sheet.href));
+    const firstB = sheet.href;
     ok('and announces the reload',             dispatched.filter(t => t === 'sassy:reload').length === reloadsBefore + 1);
 
     hash = 'ccc';
     global.window.sassy.compile();
     await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
-    ok('Live Compile swaps a link whose build is older than the answer', sheet.href === 'http://test.local/wp-content/scss/frontend.css?ver=1&h=ccc');
+    ok('Live Compile swaps a link whose build is older than the answer', /frontend\.css\?ver=1&h=ccc&r=\d+$/.test(sheet.href));
+
+    // Delete, Push, re-add, Push: the third build is byte for byte the first. Chrome's inspector
+    // keeps its edited text per URL for the page's life, and a sheet loaded again at a URL it
+    // edited loses every source range, so its rules go read-only. A swap never reuses a URL.
+    hash = 'bbb';
+    global.window.sassy.compile();
+    await new Promise(r => setImmediate(r)); await new Promise(r => setImmediate(r));
+    ok('a swap back to an earlier build is a new URL',        sheet.href !== firstB && /[?&]h=bbb(&|$)/.test(sheet.href));
+    ok('and still names its build once, and its file',        sheet.href.split('h=').length === 2 && sheet.href.split('&r=').length === 2 && sheet.href.startsWith('http://test.local/wp-content/scss/frontend.css?ver=1'));
 
     global.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ success: false, data: {} }) });
     await global.window.sassy.poll();
