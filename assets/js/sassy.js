@@ -312,7 +312,8 @@
                         if (!link) continue;
 
                         const next = new URL(link.href);
-                        next.searchParams.set('sassy', hash);
+                        next.searchParams.set('h', hash);
+                        next.searchParams.delete('sassy');
                         link.href = next.toString();
                         swapped = true;
 
@@ -569,6 +570,7 @@
             if (sheet.mapping !== undefined) return Promise.resolve(sheet.mapping);
 
             sheet.mapping = null;
+            sheet.mappingReason = undefined;
 
             if (!sheet.map) return Promise.resolve(null);
 
@@ -580,6 +582,14 @@
                 .then(bytes => {
                     const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
                     return fetch(sheet.map, { credentials: 'same-origin' }).then(r => r.json()).then(map => {
+                        // The URL names the build the page loaded, the map names the build it describes.
+                        // A cache can hand back an older sheet under a newer map; lines from that pair are wrong.
+                        let served = null;
+                        try { served = new URL(href, 'http://sassy.invalid/').searchParams.get('h'); } catch (e) {}
+                        if (served && map.x_sassy_css && served !== map.x_sassy_css) {
+                            sheet.mappingReason = `this page loaded build ${served} and the map on the server describes build ${map.x_sassy_css}, so lines are withheld rather than wrong. Reload the page.`;
+                            return null;
+                        }
                         sheet.mapping = { text, blocks: this.blocks(text), lines: this.decodeMap(String(map.mappings || '')), sources: map.sources || [] };
                         return sheet.mapping;
                     });
@@ -746,7 +756,7 @@
             const located = Promise.all(Object.keys(sheets).filter(h => changes.some(c => c.handle === h)).map(handle => {
                 const sheet = sheets[handle];
                 return this.mapping(sheet).then(mapping => {
-                    if (!mapping) { reasons[handle] = 'no source map for this sheet, so no lines; a post-processor may have removed its link.'; return; }
+                    if (!mapping) { reasons[handle] = sheet.mappingReason || 'no source map for this sheet, so no lines; a post-processor may have removed its link.'; return; }
                     const rules = rulesByHandle[handle];
                     const align = this.align(rules, mapping.blocks);
                     const paired = align.filter(b => b !== null).length;
@@ -1040,6 +1050,8 @@
                 try { href = new URL(link.href, location.href); } catch (e) { return; }
                 if (href.origin !== location.origin) return;
 
+                // No hash known here, so h would lie about the build: drop it and bust by time.
+                href.searchParams.delete('h');
                 href.searchParams.set('sassy', Date.now().toString());
                 link.href = href.toString();
 
@@ -1277,7 +1289,8 @@
                     if (link.href.includes(href)) {
 
                         const newHref = new URL(link.href);
-                        newHref.searchParams.set('sassy', (meta && meta.hash) || Date.now().toString());
+                        if (meta && meta.hash) { newHref.searchParams.set('h', meta.hash); newHref.searchParams.delete('sassy'); }
+                        else { newHref.searchParams.delete('h'); newHref.searchParams.set('sassy', Date.now().toString()); }
                         link.href = newHref.toString();
 
                         if (meta && this.logging('meta')) console.info(`Sassy compile info for ${property}:`, meta);

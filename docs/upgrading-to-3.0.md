@@ -428,3 +428,6 @@ A rule created inside a `@media`, `@supports`, `@container` or `@layer` block ca
 
 Three fixes from a code review of everything since phase 8: a declaration is located with a property boundary, so `color:` no longer matches inside `background-color:`; a written push consumes the capture, so a second Push does not resend what was written; and the write endpoint refuses what the CSSOM cannot produce, a property that is not a name or a selector, ancestor or value holding a newline or an unquoted brace.
 
+## 3.1: served URLs carry the build
+
+The URL `style_loader_src` returns now ends in `&h=` and twelve hex characters, the build's md5 prefix. Anything that matched the compiled URL exactly, a preload header, a critical-CSS tool, a test, should match up to the query string or bind `sassy-version-url` to false. The map gains one key, `x_sassy_css`, which tools ignore.

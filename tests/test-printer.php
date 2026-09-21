@@ -249,4 +249,29 @@ $linknotice = array_filter($mapless->get_warnings(), function ($d) { return str_
 
 check('an engine that wrote no map is not accused of losing one', $linknotice === [], (string) count($linknotice));
 
+section('A URL per build, and a map that names its build');
+
+// A CDN kept the build before a push under front.css?ver=2.4.100, since ver only moves when the
+// site bumps it, while the map was never cached: Capture aligned one build's text to another's map.
+$versioned = new Sassy\Printer();
+$url       = $versioned->compile($BASE . 'entry.scss?ver=2.4.100', 'entry');
+$built     = (new Sassy\Build_Target(new Sassy\Asset('entry', $BASE . 'entry.scss')))->get_file();
+$hash      = substr(md5_file($built), 0, 12);
+
+check('the served URL carries the build',        str_ends_with($url, 'entry.css?ver=2.4.100&h=' . $hash), $url);
+check('recorded at the compile, not per request', Sassy\Compile_Cache::get_hash('entry') === $hash);
+
+$map = json_decode((string) @file_get_contents($built . '.map'), true);
+check('the map names the same build',            is_array($map) && ($map['x_sassy_css'] ?? null) === $hash, var_export($map['x_sassy_css'] ?? null, true));
+
+fixture("$SCSS/_shared.scss", "\$pad: 99px;\n", 60);
+$again = (new Sassy\Printer())->compile($BASE . 'entry.scss?ver=2.4.100', 'entry');
+check('a new build is a new URL',                $again !== $url && str_contains($again, '&h=' . substr(md5_file($built), 0, 12)), $again);
+
+$GLOBALS['filter_overrides']['sassy-version-url'] = false;
+check('sassy-version-url turns it off',          (new Sassy\Printer())->compile($BASE . 'entry.scss?ver=2.4.100', 'entry') === str_replace('&h=' . substr(md5_file($built), 0, 12), '', $again));
+unset($GLOBALS['filter_overrides']['sassy-version-url']);
+
+check('a map that is not JSON passes through',  Sassy\Printer::stamp_map('not json', 'abc') === 'not json');
+
 finish();

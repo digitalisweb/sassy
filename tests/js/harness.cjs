@@ -298,15 +298,15 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
     const reloadsBefore = dispatched.filter(t => t === 'sassy:reload').length;
 
     await global.window.sassy.poll();
-    ok('the first poll only records the hash', !sheet.href.includes('sassy='));
+    ok('the first poll only records the hash', !sheet.href.includes('h='));
     ok('and does not force',                   !String(fetched[fetched.length - 1]).includes('force=1'));
 
     await global.window.sassy.poll();
-    ok('an unchanged hash reloads nothing',    !sheet.href.includes('sassy='));
+    ok('an unchanged hash reloads nothing',    !sheet.href.includes('h='));
 
     hash = 'bbb';
     await global.window.sassy.poll();
-    ok('a changed hash reloads that sheet',    sheet.href.includes('sassy=bbb'));
+    ok('a changed hash reloads that sheet',    sheet.href.includes('h=bbb') && !sheet.href.includes('sassy='));
     ok('and announces the reload',             dispatched.filter(t => t === 'sassy:reload').length === reloadsBefore + 1);
 
     global.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ success: false, data: {} }) });
@@ -559,6 +559,25 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
     const bounded = await global.window.sassy.capture();
     ok('a property is found with a boundary before it', bounded.patch.includes('plugins/d-pace/scss/frontend.scss:16  .k') && bounded.patch.includes('color: blue → green') && !bounded.patch.includes(':15  .k'));
     front.cssRules[4].style.cssText = 'background-color: red; color: blue;';
+
+    // A CDN kept serving the build before the push under an unchanging URL, while the map was
+    // always fresh: two builds, one alignment. The URL names one and the map names the other.
+    const hrefBefore = links[0].href;
+    links[0].href = front.href + '?ver=1&h=aaaaaaaaaaaa';
+    map.x_sassy_css = 'bbbbbbbbbbbb';
+    links[0].listeners.load();
+    front.cssRules[0].style.cssText = 'color: plum;';
+    const stale = await global.window.sassy.capture();
+    ok('a sheet from an older build than its map withholds lines', stale.patch.includes('this page loaded build aaaaaaaaaaaa and the map on the server describes build bbbbbbbbbbbb') && !/frontend\.scss:\d+  \.a/.test(stale.patch));
+    map.x_sassy_css = 'aaaaaaaaaaaa';
+    links[0].listeners.load();
+    front.cssRules[0].style.cssText = 'color: navy;';
+    const coherent = await global.window.sassy.capture();
+    ok('and the same build locates',                                /frontend\.scss:\d+  \.a/.test(coherent.patch));
+    delete map.x_sassy_css;
+    links[0].href = hrefBefore;
+    front.cssRules[0].style.cssText = 'color: teal;';
+    links[0].listeners.load();
 
     // A rule deleted in the inspector is gone from the CSSOM and still in the baseline and the text.
     const dropped = front.cssRules.splice(2, 1)[0];

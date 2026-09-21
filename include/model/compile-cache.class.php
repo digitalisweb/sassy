@@ -96,6 +96,8 @@ class Compile_Cache {
             $build_file        => filemtime($build_file),
             '__compile_time__' => $compile_time,
             '__diagnostics__'  => static::tally($diagnostics),
+            // Read on every request for the build's URL, so hashed once here rather than there.
+            '__hash__'         => substr((string) md5_file($build_file), 0, 12),
         ], $graph->to_array()));
 
         set_transient(static::VARS_KEY . $this->asset->handle, $this->resolver->get_signature());
@@ -168,6 +170,15 @@ class Compile_Cache {
         }
 
         return $counts;
+
+    }
+
+    /** The first twelve of the build's md5, as recorded at its compile; null before one. */
+    public static function get_hash ($handle) {
+
+        $recorded = get_transient(static::GRAPH_KEY . $handle);
+
+        return is_array($recorded) ? ($recorded['__hash__'] ?? null) : null;
 
     }
 

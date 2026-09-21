@@ -176,7 +176,9 @@ class Printer {
                 return $this->get_build_url();
             }
 
-            if ($map !== null && $request->map_path) file_put_contents($request->map_path, $map);
+            // The map says which build of the CSS it describes, so a sheet a cache served from
+            // an older build can be told from its map rather than aligned against it.
+            if ($map !== null && $request->map_path) file_put_contents($request->map_path, static::stamp_map($map, substr(md5($css), 0, 12)));
 
             $graph = Import_Scanner::scan($src_path, $this->get_import_paths($src_path));
 
@@ -198,7 +200,28 @@ class Printer {
         if (!empty($parse_src['query'])) {
             $output .= '?' . $parse_src['query'];
         }
+
+        // A URL per build. `ver` only moves when the site bumps it, so a CDN or a browser would
+        // otherwise keep serving the build before this one under the same address.
+        if (apply_filters('sassy-version-url', true, $this->src, $this->handle, $this->get_asset())) {
+            $hash = Compile_Cache::get_hash($this->handle) ?: $this->get_hash();
+            if ($hash) $output .= (str_contains($output, '?') ? '&' : '?') . 'h=' . $hash;
+        }
+
         return $output;
+    }
+
+    /** The map with the hash of the CSS it describes, or the map untouched if it is not JSON. */
+    public static function stamp_map ($map, $hash) {
+
+        $decoded = json_decode((string) $map, true);
+
+        if (!is_array($decoded)) return $map;
+
+        $decoded['x_sassy_css'] = $hash;
+
+        return json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
     }
 
     /**

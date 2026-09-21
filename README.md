@@ -97,6 +97,8 @@ Between compiles the check is one `stat` per dependency, under a millisecond on 
 
 Compiled CSS and source maps land in `wp-content/scss/`, or `wp-content/scss/{blog_id}/` on multisite. The [hooks](#hooks) move it.
 
+The URL Sassy hands WordPress ends in `h=` and the first twelve of the build's md5, so every build is a new address. `ver` only moves when you bump it, and a CDN with a long `max-age` will otherwise serve last month's sheet under this month's URL. The source map records the same hash, and Capture refuses to align a sheet against a map from another build.
+
 Where the web server owns that directory, compiling from your own account fails and `wp sassy status` says `build path writable NO`. Group permissions do not hold, since php-fpm's umask makes each new sheet 644 and Sassy rewrites in place. A default ACL does:
 
 ```bash
@@ -350,6 +352,7 @@ There is no settings page and there will not be one. Everything is a constant or
 | `sassy-variables` | See [Variables](#variables) | The variables every compile sees |
 | `sassy-import-paths` | `[dirname($src_path), SASSY_PATH]`, plus `DIGITALIS_FRAMEWORK_PATH` if defined | Filesystem paths searched by `@use` and `@import` |
 | `sassy-src-map` | `true` | Whether to generate the source map |
+| `sassy-version-url` | `true` | Whether the served URL carries `h=<build hash>`, so each build is a new address to a CDN or a browser |
 | `sassy-src-path` | resolved from the URL, or `null` | Override the source's filesystem path. Runs even when resolution failed, which is how a source Sassy cannot place gets placed |
 | `sassy-css` | | The compiled CSS, before post-processors |
 | `sassy-engine` | `null`, meaning scssphp | Return a `Compiler_Engine` instance |
