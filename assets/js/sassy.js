@@ -597,13 +597,28 @@
                 .then(response => response.arrayBuffer())
                 .then(bytes => {
                     const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
-                    return fetch(sheet.map, { credentials: 'same-origin' }).then(r => r.json()).then(map => {
-                        // The URL names the build the page loaded, the map names the build it describes.
-                        // A cache can hand back an older sheet under a newer map; lines from that pair are wrong.
-                        let served = null;
-                        try { served = new URL(href, 'http://sassy.invalid/').searchParams.get('h'); } catch (e) {}
-                        if (served && map.x_sassy_css && served !== map.x_sassy_css) {
-                            sheet.mappingReason = `this page loaded build ${served} and the map on the server describes build ${map.x_sassy_css}, so lines are withheld rather than wrong. Reload the page.`;
+
+                    // The URL names the build the page loaded. Its map has to name the same one.
+                    let served = null;
+                    try { served = new URL(href, 'http://sassy.invalid/').searchParams.get('h'); } catch (e) {}
+
+                    // The sheet names its own map, at an address versioned per build. The server's
+                    // plain one is the fallback, for a sheet whose link a post-processor rewrote.
+                    let mapUrl = sheet.map;
+                    const own = /\/\*#\s*sourceMappingURL=(\S+?)\s*\*\/\s*$/.exec(text.slice(-600));
+                    try { if (own) mapUrl = new URL(own[1], href).toString(); } catch (e) {}
+
+                    // A map with no stamp is unverified, not matching. It fails closed.
+                    const verified = map => !served || (map && map.x_sassy_css === served);
+                    const get      = cache => fetch(mapUrl, { credentials: 'same-origin', cache }).then(r => r.json());
+
+                    // Revalidate first, which costs a 304. A map served with no Cache-Control is
+                    // kept by the browser on a guess, for hours; if it still disagrees, go past the cache once.
+                    return get('no-cache').then(map => (verified(map) ? map : get('no-store'))).then(map => {
+                        if (!verified(map)) {
+                            sheet.mappingReason = map && map.x_sassy_css
+                                ? `this page loaded build ${served} and the map on the server describes build ${map.x_sassy_css}, so lines are withheld rather than wrong. Reload the page.`
+                                : `this page loaded build ${served} and its map does not say which build it describes, so lines are withheld rather than wrong. Compile, then reload.`;
                             return null;
                         }
                         sheet.mapping = { text, blocks: this.blocks(text), lines: this.decodeMap(String(map.mappings || '')), sources: map.sources || [] };
@@ -797,6 +812,7 @@
                             continue;
                         }
                         change.location = this.locate(mapping, this.changeOffset(mapping, block, change, change.was));
+                        if (!change.location) change.unlocated = 'the map has no segment at this position';
                     }
                 });
             }));
@@ -976,6 +992,7 @@
                     tail  = n ? `  (no source location; belongs after ${n.selector}${n.location ? ' at ' + n.location.file + ':' + n.location.line : ''})` : '  (no source location)';
                 }
                 if (c.removedRule) tail = c.location ? '  (rule removed)' : '  (rule removed: no source location)';
+                else if (!c.location && c.unlocated) tail = `  (${c.unlocated})`;
                 const key   = `${c.handle}:${c.index}:${where}:${c.selector}`;
                 if (!groups.has(key)) groups.set(key, [`${where}  ${c.selector}${tail}`]);
                 const rows = groups.get(key);

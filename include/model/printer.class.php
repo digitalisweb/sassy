@@ -161,6 +161,10 @@ class Printer {
             $css     = Extensions::post_process($css, $context);
             $this->diagnostics = array_merge($this->diagnostics, $context->get_diagnostics());
 
+            // The map's address moves with the build too, or a browser keeps last week's map on a
+            // freshness guess and DevTools and Capture both map a new sheet against it.
+            if (apply_filters('sassy-version-url', true, $this->src, $this->handle, $this->get_asset())) $css = static::version_map_link($css);
+
             // Any post-processor can drop the link; the map is then written and unreachable.
             if ($result->map !== null && $request->map_path && !str_contains($css, 'sourceMappingURL')) {
                 $this->diagnostics[] = new Diagnostic(Diagnostic::NOTICE, 'Source map written but nothing links to it: a post-processor removed the sourceMappingURL comment.', [
@@ -209,6 +213,18 @@ class Printer {
         }
 
         return $output;
+    }
+
+    /**
+     * The sourceMappingURL with ?v=<token>, a new address per build. The CSS cannot carry its own
+     * hash, since the link is part of it, so the token is the hash of the CSS as it arrived here.
+     */
+    public static function version_map_link ($css) {
+
+        $token = substr(md5((string) $css), 0, 12);
+
+        return preg_replace('~(/\*#\s*sourceMappingURL=)([^\s*?]+)(?:\?[^\s*]*)?(\s*\*/\s*)$~', '${1}${2}?v=' . $token . '${3}', (string) $css, 1);
+
     }
 
     /** The map with the hash of the CSS it describes, or the map untouched if it is not JSON. */

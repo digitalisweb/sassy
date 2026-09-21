@@ -97,7 +97,7 @@ Between compiles the check is one `stat` per dependency, under a millisecond on 
 
 Compiled CSS and source maps land in `wp-content/scss/`, or `wp-content/scss/{blog_id}/` on multisite. The [hooks](#hooks) move it.
 
-The URL Sassy hands WordPress ends in `h=` and the first twelve of the build's md5, so every build is a new address. `ver` only moves when you bump it, and a CDN with a long `max-age` will otherwise serve last month's sheet under this month's URL. The source map records the same hash, and Capture refuses to align a sheet against a map from another build.
+The URL Sassy hands WordPress ends in `h=` and the first twelve of the build's md5, so every build is a new address. `ver` only moves when you bump it, and a CDN with a long `max-age` will otherwise serve last month's sheet under this month's URL. The source map records the same hash and is linked at an address that moves with the build too, so neither DevTools nor Capture can pair a new sheet with a map the browser kept from an old one. Capture checks the pair and refuses to align a sheet against a map from another build, or one that does not say which build it is.
 
 Where the web server owns that directory, compiling from your own account fails and `wp sassy status` says `build path writable NO`. Group permissions do not hold, since php-fpm's umask makes each new sheet 644 and Sassy rewrites in place. A default ACL does:
 

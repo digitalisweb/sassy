@@ -45,8 +45,12 @@ $map = json_decode(file_get_contents("$BUILD/entry.css.map"), true);
 
 section('sourceMappingURL');
 preg_match('~sourceMappingURL=(\S+?)\s*\*/~', $css, $m);
-check('points at the built map, not the temp output',
-    ($m[1] ?? '') === 'http://test.local/wp-content/scss/entry.css.map', $m[1] ?? '(none)');
+check('points at the built map, not the temp output, at an address per build',
+    (bool) preg_match('~^http://test\.local/wp-content/scss/entry\.css\.map\?v=[0-9a-f]{12}$~', $m[1] ?? ''), $m[1] ?? '(none)');
+check('a link already versioned is replaced, not stacked',
+    substr_count(Sassy\Printer::version_map_link("a{b:c}\n/*# sourceMappingURL=x.css.map?v=000000000000 */\n"), '?v=') === 1 && !str_contains(Sassy\Printer::version_map_link("a{b:c}\n/*# sourceMappingURL=x.css.map?v=000000000000 */\n"), '000000000000'));
+check('css with no link is left alone',
+    Sassy\Printer::version_map_link("a{b:c}\n") === "a{b:c}\n");
 
 section('Sources resolve from where the map is served');
 foreach (($map['sources'] ?? []) as $source) {

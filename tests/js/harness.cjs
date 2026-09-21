@@ -348,7 +348,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
     const mappingFetch = url => {
         url = String(url);
-        if (url.endsWith('.map')) return Promise.resolve({ ok: true, json: () => Promise.resolve(map) });
+        if (/\.map(\?|$)/.test(url)) return Promise.resolve({ ok: true, json: () => Promise.resolve(map) });
         return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new TextEncoder().encode(text).buffer) });
     };
     global.fetch = mappingFetch;
@@ -553,7 +553,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
     front.cssRules.length = 0; front.cssRules.push(...printed);
     links[0].listeners.load();
     printed[printed.length - 1].style.cssText = 'color: green;';
-    global.fetch = url => String(url).endsWith('.map') ? mappingFetch(url) : Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new TextEncoder().encode(written).buffer) });
+    global.fetch = url => /\.map(\?|$)/.test(String(url)) ? mappingFetch(url) : Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new TextEncoder().encode(written).buffer) });
     const rewritten = await global.window.sassy.capture();
     ok('every selector Chrome rewrites still pairs', !rewritten.patch.includes('did not align') && rewritten.patch.includes('color: blue → green'), rewritten.patch);
     global.fetch = mappingFetch;
@@ -576,9 +576,36 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
     front.cssRules[0].style.cssText = 'color: plum;';
     const stale = await global.window.sassy.capture();
     ok('a sheet from an older build than its map withholds lines', stale.patch.includes('this page loaded build aaaaaaaaaaaa and the map on the server describes build bbbbbbbbbbbb') && !/frontend\.scss:\d+  \.a/.test(stale.patch));
-    map.x_sassy_css = 'aaaaaaaaaaaa';
+    // A map with no stamp is unverified, not matching. The check once skipped when the stamp was
+    // absent, and a map the browser had kept from before the stamp existed was aligned anyway.
+    delete map.x_sassy_css;
+    links[0].listeners.load();
+    front.cssRules[0].style.cssText = 'color: coral;';
+    const modes = [];
+    global.fetch = (url, opts) => { if (/\.map(\?|$)/.test(String(url))) modes.push(opts && opts.cache); return mappingFetch(url); };
+    const unstamped = await global.window.sassy.capture();
+    ok('an unstamped map against a stamped page withholds', unstamped.patch.includes('its map does not say which build it describes') && !/frontend\.scss:\d+  \.a/.test(unstamped.patch));
+    ok('after revalidating, then going past the cache once', modes.join() === 'no-cache,no-store');
+
+    // The browser kept an older map on a freshness guess. Past the cache the right one is there,
+    // at the address the sheet itself names.
     links[0].listeners.load();
     front.cssRules[0].style.cssText = 'color: navy;';
+    const asked = [];
+    global.fetch = (url, opts) => {
+        url = String(url);
+        if (!/\.map(\?|$)/.test(url)) return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new TextEncoder().encode(text + '\n/*# sourceMappingURL=frontend.css.map?v=0123456789ab */\n').buffer) });
+        asked.push(url);
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(Object.assign({}, map, opts && opts.cache === 'no-store' ? { x_sassy_css: 'aaaaaaaaaaaa' } : {})) });
+    };
+    const pastCache = await global.window.sassy.capture();
+    ok('a map stale in the browser cache locates once fetched past it', /frontend\.scss:\d+  \.a/.test(pastCache.patch));
+    ok('from the address the sheet names, versioned per build',          asked.length === 2 && asked.every(u => u === 'http://test.local/wp-content/scss/frontend.css.map?v=0123456789ab'));
+    global.fetch = mappingFetch;
+
+    map.x_sassy_css = 'aaaaaaaaaaaa';
+    links[0].listeners.load();
+    front.cssRules[0].style.cssText = 'color: olive;';
     const coherent = await global.window.sassy.capture();
     ok('and the same build locates',                                /frontend\.scss:\d+  \.a/.test(coherent.patch));
     delete map.x_sassy_css;
@@ -595,7 +622,7 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
     let removalPost = null;
     global.fetch = (url, opts) => {
         if (opts && opts.method === 'POST') { removalPost = JSON.parse(opts.body.get('changes')); return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, data: { results: [{ written: true, file: '/srv/x/frontend.scss', line: 8, reason: null, text: '.c {' }] } }) }); }
-        return url.endsWith && String(url).endsWith('.map') ? mappingFetch(url) : new Promise(() => {});
+        return /\.map(\?|$)/.test(String(url)) ? mappingFetch(url) : new Promise(() => {});
     };
     await global.window.sassy.push();
     ok('a deletion goes over the wire as its block',            removalPost && removalPost.length === 1 && removalPost[0].remove === true && removalPost[0].selector === '.c' && removalPost[0].source === '../plugins/d-pace/scss/frontend.scss' && removalPost[0].line === 8);
