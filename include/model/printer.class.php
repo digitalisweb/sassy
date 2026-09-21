@@ -204,7 +204,7 @@ class Printer {
         // A URL per build. `ver` only moves when the site bumps it, so a CDN or a browser would
         // otherwise keep serving the build before this one under the same address.
         if (apply_filters('sassy-version-url', true, $this->src, $this->handle, $this->get_asset())) {
-            $hash = Compile_Cache::get_hash($this->handle) ?: $this->get_hash();
+            $hash = Compile_Cache::get_hash($this->handle) ?: $this->get_content_hash();
             if ($hash) $output .= (str_contains($output, '?') ? '&' : '?') . 'h=' . $hash;
         }
 

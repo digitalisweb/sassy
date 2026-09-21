@@ -272,6 +272,14 @@ $GLOBALS['filter_overrides']['sassy-version-url'] = false;
 check('sassy-version-url turns it off',          (new Sassy\Printer())->compile($BASE . 'entry.scss?ver=2.4.100', 'entry') === str_replace('&h=' . substr(md5_file($built), 0, 12), '', $again));
 unset($GLOBALS['filter_overrides']['sassy-version-url']);
 
+// A site that pulls this change has records written before it, with no hash in them, and serves
+// from cache. That path called a method that did not exist and took every page down with it.
+$record = get_transient('sassy-filemtimes-entry');
+unset($record['__hash__']);
+set_transient('sassy-filemtimes-entry', $record);
+$legacy = (new Sassy\Printer())->compile($BASE . 'entry.scss?ver=2.4.100', 'entry');
+check('a record from before the change still serves, hashed from the file', Sassy\Compile_Cache::get_hash('entry') === null && str_ends_with($legacy, '&h=' . substr(md5_file($built), 0, 12)), $legacy);
+
 check('a map that is not JSON passes through',  Sassy\Printer::stamp_map('not json', 'abc') === 'not json');
 
 finish();
