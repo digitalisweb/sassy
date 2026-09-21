@@ -115,12 +115,19 @@ class Source_Writer {
                     // the block has no such line. It goes after the mapped line: a sibling
                     // declaration where the rule has one, since a hoisted rule's opener is the
                     // outer rule's, else the opener itself.
-                    [$insert, $reason] = static::insertion($lines, $n, (string) $change['prop'], (string) $change['to']);
+                    // A one-line block takes it before its closing brace, in the author's style.
+                    $one = static::one_line_addition($text, (string) $change['prop'], (string) $change['to']);
 
-                    if ($reason !== null) { $results[$i]['reason'] = $reason; continue; }
+                    if ($one !== null) {
+                        $lines[$n - 1] = $one;
+                    } else {
+                        [$insert, $reason] = static::insertion($lines, $n, (string) $change['prop'], (string) $change['to']);
 
-                    array_splice($lines, $n, 0, [$insert]);
-                    $lines = array_values($lines);
+                        if ($reason !== null) { $results[$i]['reason'] = $reason; continue; }
+
+                        array_splice($lines, $n, 0, [$insert]);
+                        $lines = array_values($lines);
+                    }
 
                 } else {
 
@@ -223,6 +230,55 @@ class Source_Writer {
         while (--$depth >= 0) $out[] = $indent . str_repeat($step, $depth) . '}' . $eol;
 
         return [[$end, $out], null];
+
+    }
+
+    /**
+     * The offsets of the one `{` and the one `}` of a line that is a single one-line block, or
+     * null. Strings, comments and #{interpolation} do not count, and two blocks or a nested one
+     * on the line is not this.
+     *
+     * @return ?array{0: int, 1: int}
+     */
+    public static function one_liner ($line) {
+
+        $open = $close = null; $opens = $closes = $interp = 0; $quote = null; $comment = false;
+
+        for ($j = 0, $len = strlen($line); $j < $len; $j++) {
+
+            $c = $line[$j]; $next = $line[$j + 1] ?? '';
+
+            if ($comment) { if ($c === '*' && $next === '/') { $comment = false; $j++; } continue; }
+            if ($quote)   { if ($c === '\\') $j++; else if ($c === $quote) $quote = null; continue; }
+
+            if ($c === '"' || $c === "'") { $quote = $c; continue; }
+            if ($c === '/' && $next === '*') { $comment = true; $j++; continue; }
+            if ($c === '/' && $next === '/') break;
+
+            if ($c === '#' && $next === '{') { $interp++; $j++; continue; }
+
+            if ($c === '{')      { if ($interp) { $interp++; continue; } $opens++; $open = $open ?? $j; }
+            else if ($c === '}') { if ($interp) { $interp--; continue; } $closes++; $close = $j; }
+
+        }
+
+        return ($opens === 1 && $closes === 1 && $close > $open) ? [$open, $close] : null;
+
+    }
+
+    /** The one-line block with `prop: to;` before its closing brace, or null when the line is not one. */
+    public static function one_line_addition ($line, $prop, $to) {
+
+        $span = static::one_liner($line);
+
+        if ($span === null) return null;
+
+        $head = rtrim(substr($line, 0, $span[1]));
+        $last = substr($head, -1);
+
+        if ($last !== '{' && $last !== ';') $head .= ';';
+
+        return $head . ' ' . $prop . ': ' . $to . '; ' . substr($line, $span[1]);
 
     }
 
@@ -357,9 +413,13 @@ class Source_Writer {
         if ($value !== trim($from)) return [null, "the line has `$prop: $value`, not `$from`"];
 
         if ($to === null) {
-            // Only a line that is this declaration and nothing else.
-            if (trim($line) !== trim(substr($line, $start, $end - $start + 1))) return [null, 'the line holds more than that declaration'];
-            return [null, null];
+            // A line that is this declaration and nothing else goes whole.
+            if (trim($line) === trim(substr($line, $start, $end - $start + 1))) return [null, null];
+            // Inside a one-line block the declaration goes and the block stays.
+            if (static::one_liner($line) === null) return [null, 'the line holds more than that declaration'];
+            $after = $end + 1;
+            if (($line[$after] ?? '') === ' ') $after++;
+            return [substr($line, 0, $start) . substr($line, $after), null];
         }
 
         $lead  = strlen($raw) - strlen(ltrim($raw));

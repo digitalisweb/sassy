@@ -92,7 +92,9 @@ check('nor anything claimed',       !in_array("$BUILD/a.css", $orphans, true));
 // The shape of a site whose plugin skips the CLI: other plugins register admin styles, so the
 // context is not quiet, but the handle that built admin.css is registered nowhere here. The
 // cache record it left from its web compiles says who built the file.
-set_transient('sassy-filemtimes-ghost', ["$BUILD/abandoned.css" => 1, '__compile_time__' => 1700000000, 'deps' => [], 'dirs' => []]);
+// As record() writes it: the build file keyed to its mtime, and __compile_time__ a duration in
+// seconds. The notice once formatted the duration as a date and said 1970-01-01 on a live site.
+set_transient('sassy-filemtimes-ghost', ["$BUILD/abandoned.css" => 1700000000, '__compile_time__' => 0.1866, 'deps' => [], 'dirs' => []]);
 set_transient('sassy-handles', array_merge(get_transient('sassy-handles') ?: [], ['ghost']));
 $about = array_values(array_filter($stack->audit(), function ($d) use ($BUILD) { return in_array($d->file, ["$BUILD/abandoned.css", "$BUILD/abandoned.css.map"], true); }));
 check('an output a recorded handle built is a notice naming it', count($about) === 2 && $about[0]->severity === 'notice' && str_contains($about[0]->message, 'Built by `ghost`, last compiled 2023-11-14'), var_export(array_map(function ($d) { return [$d->severity, $d->message]; }, $about), true));

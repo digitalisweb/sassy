@@ -93,7 +93,7 @@ class Admin_Page {
                 $row['state']   = $state;
                 $row['imports'] = $graph ? count($graph->deps) : 0;
                 $row['engine']  = $printer->get_engine_class();
-                $row['time']    = $printer->get_last_compile_time();
+                $row['time']    = $printer->get_compile_duration();
 
                 $handles[$asset->handle] = static::handle_data($asset, $printer, $graph);
 
@@ -120,7 +120,7 @@ class Admin_Page {
         return [
             'state'       => $printer->get_state(),
             'engine'      => $printer->get_engine_class(),
-            'time'        => $printer->get_last_compile_time(),
+            'time'        => $printer->get_compile_duration(),
             'source'      => $asset->get_source_path(),
             'source_url'  => is_string($asset->src) ? $asset->src : null,
             'built'       => $target->get_file(),

@@ -182,7 +182,8 @@ class Compile_Cache {
 
     }
 
-    public static function get_last_compile_time ($handle) {
+    /** Seconds the last recorded compile took. Not when it ran: the build file's mtime says that. */
+    public static function get_compile_duration ($handle) {
 
         $recorded = get_transient(static::GRAPH_KEY . $handle);
 
@@ -266,7 +267,8 @@ class Compile_Cache {
 
         foreach (get_transient(static::HANDLES_KEY) ?: [] as $handle) {
             $recorded = get_transient(static::GRAPH_KEY . $handle);
-            if (is_array($recorded) && isset($recorded[$path])) return ['handle' => $handle, 'time' => $recorded['__compile_time__'] ?? null];
+            // The record keys the build file to its mtime at the compile. __compile_time__ is how long it took.
+            if (is_array($recorded) && isset($recorded[$path])) return ['handle' => $handle, 'time' => is_numeric($recorded[$path]) ? (int) $recorded[$path] : null];
         }
 
         return null;

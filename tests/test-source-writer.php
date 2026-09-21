@@ -203,6 +203,28 @@ check('a block with nested blocks refuses',         !$r[1]['written'] && str_con
 check('a line that opens no block refuses',         !$r[2]['written'] && str_contains($r[2]['reason'], 'does not open a block'), (string) $r[2]['reason']);
 check('so does one holding a nested one-liner',    !$r[3]['written'] && str_contains($r[3]['reason'], 'nested'), (string) $r[3]['reason']);
 
+section('A one-line block keeps its line');
+
+// 60 of these in the codebase that reported it: `> *:first-child { margin-top: 0; }`.
+$one = "        > *:first-child { margin-top: 0; }      // core-mixins.scss:31\n";
+check('an addition goes before the closing brace',  Source_Writer::one_line_addition($one, 'color', 'pink') === "        > *:first-child { margin-top: 0; color: pink; }      // core-mixins.scss:31\n", (string) Source_Writer::one_line_addition($one, 'color', 'pink'));
+check('a body with no trailing semicolon gains one', Source_Writer::one_line_addition(".lg { font-size: 1.2em }\n", 'color', 'red') === ".lg { font-size: 1.2em; color: red; }\n");
+check('an empty block takes it too',                Source_Writer::one_line_addition(".x {}\n", 'color', 'red') === ".x { color: red; }\n");
+check('interpolation braces are not the block\'s',  Source_Writer::one_line_addition(".col-#{\$i} { width: 1px; }\n", 'color', 'red') === ".col-#{\$i} { width: 1px; color: red; }\n", (string) Source_Writer::one_line_addition(".col-#{\$i} { width: 1px; }\n", 'color', 'red'));
+check('a nested one-liner is not this',             Source_Writer::one_line_addition("a { b { c: d; } }\n", 'color', 'red') === null);
+check('nor two blocks on a line',                   Source_Writer::one_line_addition("a { c: d; } b { e: f; }\n", 'color', 'red') === null);
+check('nor an opener',                              Source_Writer::one_line_addition(".col-#{\$i} {\n", 'color', 'red') === null);
+check('a brace in a string is not a brace',         Source_Writer::one_line_addition(".q { content: \"}\"; }\n", 'color', 'red') === ".q { content: \"}\"; color: red; }\n");
+
+$liner = "$DIR/_liner.scss";
+fixture($liner, ".wrap {\n    > *:first-child { margin-top: 0; }\n    a { b { c: d; } }\n}\n");
+$r = (new Source_Writer(graph_for($liner)))->apply([['source' => '_liner.scss', 'line' => 2, 'prop' => 'color', 'from' => null, 'to' => 'pink'], ['source' => '_liner.scss', 'line' => 3, 'prop' => 'color', 'from' => null, 'to' => 'pink']]);
+check('through apply, the line is rewritten in place', $r[0]['written'] === true && file_get_contents($liner) === ".wrap {\n    > *:first-child { margin-top: 0; color: pink; }\n    a { b { c: d; } }\n}\n", file_get_contents($liner));
+check('and the nested one-liner refuses as before',    !$r[1]['written'] && str_contains($r[1]['reason'], 'neither holds a declaration nor opens the block'), (string) $r[1]['reason']);
+
+$r = (new Source_Writer(graph_for($liner)))->apply([change('_liner.scss', 2, 'color', 'pink', null)]);
+check('a removal inside one takes the declaration, not the line', $r[0]['written'] === true && file_get_contents($liner) === ".wrap {\n    > *:first-child { margin-top: 0; }\n    a { b { c: d; } }\n}\n", file_get_contents($liner));
+
 section('A write is announced');
 
 $fired = [];

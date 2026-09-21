@@ -294,7 +294,7 @@ class Sassy_CLI_Command extends WP_CLI_Command {
                 $item['state']   = $compiler->get_state();
                 $item['imports'] = $graph ? count($graph->deps) : 0;
                 $item['engine']  = $compiler->get_engine_class();
-                $item['time']    = ($t = $compiler->get_last_compile_time()) ? sprintf('%.3fs', $t) : '';
+                $item['time']    = ($t = $compiler->get_compile_duration()) ? sprintf('%.3fs', $t) : '';
                 $item['built']   = $built;
 
             }

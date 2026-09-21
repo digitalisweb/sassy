@@ -111,7 +111,7 @@ compile($BASE . 'entry.scss', 'entry');
 check('after a compile it is current',     $cache->is_current());
 check('and needs no compile',              !$cache->needs_compile());
 check('the graph is recorded',             Compile_Cache::get_graph('entry') !== null);
-check('the compile time is recorded',      Compile_Cache::get_last_compile_time('entry') > 0);
+check('how long the compile took is recorded', Compile_Cache::get_compile_duration('entry') > 0 && Compile_Cache::get_compile_duration('entry') < 60);
 
 fixture("$SCSS/_shared.scss", "\$pad: 12px;\n", 10);
 clearstatcache();

@@ -492,9 +492,9 @@ class Printer {
 
     }
 
-    public function get_last_compile_time () {
+    public function get_compile_duration () {
 
-        return Compile_Cache::get_last_compile_time($this->handle);
+        return Compile_Cache::get_compile_duration($this->handle);
 
     }
 
